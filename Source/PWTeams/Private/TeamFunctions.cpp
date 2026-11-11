@@ -3,11 +3,26 @@
 
 #include "TeamFunctions.h"
 
+#include "TeamAgent.h"
+#include "TeamComponent.h"
 #include "Ability/SpellParams.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerState.h"
 
 int32 UTeamFunctions::GetTeamId(const AActor* Actor)
 {
-	//todo: get team id of actor
+	if (!Actor) return 0;
+
+	if (Actor->Implements<UTeamAgent>())
+		return ITeamAgent::Execute_GetTeamId_BP(Actor);
+	if (const UTeamComponent* Team = Actor->FindComponentByClass<UTeamComponent>())
+		return Team->GetTeamId();
+
+	const APawn* Pawn = Cast<APawn>(Actor);
+	const APlayerState* PlayerState = Pawn ? Pawn->GetPlayerState() : nullptr;
+	if (const UTeamComponent* Team = PlayerState ? PlayerState->FindComponentByClass<UTeamComponent>() : nullptr)
+		return Team->GetTeamId();
+
 	return 0;
 }
 
