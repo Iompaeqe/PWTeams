@@ -13,6 +13,7 @@ class PWTEAMS_API UTeamComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	// Team the owner belongs to; 0 means no team, which makes it neutral to everyone.
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite)
 	int32 TeamId = 0;
 

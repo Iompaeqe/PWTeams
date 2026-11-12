@@ -13,6 +13,7 @@ class PWTEAMS_API UTeamColorData : public UDataAsset
 	GENERATED_BODY()
 
 public:
+	// Color palette for each team id.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TMap<int32, FTeamPalette> Teams;
 };
