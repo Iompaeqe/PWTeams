@@ -7,9 +7,6 @@
 #include "Engine/DataAsset.h"
 #include "TeamColorData.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class PWTEAMS_API UTeamColorData : public UDataAsset
 {

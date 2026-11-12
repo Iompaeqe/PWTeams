@@ -9,9 +9,6 @@
 UENUM(BlueprintType)
 enum class ERelation : uint8 { Unknown, Self, Ally, Enemy };
 
-/**
- * 
- */
 UCLASS()
 class PWTEAMS_API UTeamFunctions : public UBlueprintFunctionLibrary
 {
