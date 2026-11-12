@@ -50,7 +50,7 @@ ERelation UTeamFunctions::GetRelation(const AActor* A, const AActor* B)
 
 	const int32 TA = GetTeamId(A);
 	const int32 TB = GetTeamId(B);
-	if (TA == 0 || TB == 0) return ERelation::Unknown;
+	if (TA == 0 || TB == 0) return ERelation::Neutral;
 
 	return (TA == TB) ? ERelation::Ally : ERelation::Enemy;
 }
@@ -63,6 +63,7 @@ bool UTeamFunctions::MatchesMask(const AActor* A, const AActor* B, uint8 MaskByt
 	case ERelation::Self:  return EnumMaskHas(Mask, ERelationMask::Self);
 	case ERelation::Ally:  return EnumMaskHas(Mask, ERelationMask::Ally);
 	case ERelation::Enemy: return EnumMaskHas(Mask, ERelationMask::Enemy);
+	case ERelation::Neutral: return EnumMaskHas(Mask, ERelationMask::Neutral);
 	default:               return true;
 	}
 }

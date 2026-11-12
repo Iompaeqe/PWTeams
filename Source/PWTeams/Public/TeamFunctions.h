@@ -7,7 +7,8 @@
 #include "TeamFunctions.generated.h"
 
 UENUM(BlueprintType)
-enum class ERelation : uint8 { Unknown, Self, Ally, Enemy };
+// Neutral is an actor without a team, such as a prop.
+enum class ERelation : uint8 { Unknown, Self, Ally, Enemy, Neutral };
 
 UCLASS()
 class PWTEAMS_API UTeamFunctions : public UBlueprintFunctionLibrary
