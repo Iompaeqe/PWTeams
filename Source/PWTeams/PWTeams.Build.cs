@@ -39,8 +39,7 @@ public class PWTeams : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-				"SlateCore",
-				"PWSharedTypes"
+				"SlateCore"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
