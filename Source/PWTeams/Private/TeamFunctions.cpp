@@ -5,7 +5,7 @@
 
 #include "TeamAgent.h"
 #include "TeamComponent.h"
-#include "Ability/SpellParams.h"
+#include "Ability/PWSpellParams.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerState.h"
 
