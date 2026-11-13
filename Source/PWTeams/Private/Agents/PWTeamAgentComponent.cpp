@@ -7,6 +7,7 @@
 #include "Core/PWTeamsSettings.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerState.h"
+#include "GameFramework/Controller.h"
 #include "Net/UnrealNetwork.h"
 
 UPWTeamAgentComponent::UPWTeamAgentComponent()
@@ -45,7 +46,9 @@ void UPWTeamAgentComponent::OnRegister()
 	APlayerState* PlayerState = Cast<APlayerState>(GetOwner());
 	if (bRegisterParticipant && PlayerState && HasAuthority() && !OwnerParticipant.IsValid())
 	{
-		const EPWTeamParticipantType Type = PlayerState->IsABot() ? EPWTeamParticipantType::AI : EPWTeamParticipantType::Player;
+		// The bot flag is set after the player state spawns, so ask who owns it.
+		const AController* Controller = Cast<AController>(PlayerState->GetOwner());
+		const EPWTeamParticipantType Type = PlayerState->IsABot() || (Controller && !Controller->IsPlayerController()) ? EPWTeamParticipantType::AI : EPWTeamParticipantType::Player;
 		OwnerParticipant = Teams->RegisterParticipant(FName(*PlayerState->GetPlayerName()), Type, NAME_None, PlayerState);
 		bRegisteredParticipant = OwnerParticipant.IsValid();
 		bPrimary = true;
