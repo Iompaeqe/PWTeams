@@ -205,6 +205,9 @@ protected:
 	// Server: copies the current state to the registry actor so it reaches clients.
 	void PushToRegistry();
 
+	// Server: creates the factions listed in the project's team setup.
+	void CreateFactionsFromSetup();
+
 private:
 	UPROPERTY()
 	TArray<FPWTeamParticipant> Participants;

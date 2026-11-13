@@ -4,6 +4,7 @@
 #include "Agents/PWTeamAgentComponent.h"
 
 #include "Core/PWTeamsSubsystem.h"
+#include "Core/PWTeamsSettings.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerState.h"
 #include "Net/UnrealNetwork.h"
@@ -147,4 +148,13 @@ void UPWTeamAgentComponent::SetPrimary(const bool bNewPrimary)
 {
 	if (HasAuthority())
 		bPrimary = bNewPrimary;
+}
+
+TArray<FName> UPWTeamAgentComponent::GetFactionOptions() const
+{
+	TArray<FName> Options = UPWTeamsSettings::GetFactionNames();
+	// Keep a name that is not in the setup selectable, so opening the actor never loses it.
+	if (!ExplicitFaction.IsNone())
+		Options.AddUnique(ExplicitFaction);
+	return Options;
 }

@@ -10,6 +10,7 @@
 #include "Agents/PWTeamAgent.h"
 #include "Agents/PWTeamAgentComponent.h"
 #include "Core/PWTeamsSettings.h"
+#include "Core/PWTeamSetup.h"
 #include "Core/PWTeamsTags.h"
 #include "Relationships/PWTeamRelationshipProvider.h"
 #include "Replication/PWTeamRegistry.h"
@@ -443,6 +444,7 @@ bool UPWTeamsSubsystem::IsSameFaction(const AActor* Source, const AActor* Target
 void UPWTeamsSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
+	CreateFactionsFromSetup();
 	PushToRegistry();
 }
 
@@ -524,4 +526,23 @@ void UPWTeamsSubsystem::ApplyReplicatedState(const APWTeamRegistry& From)
 
 	// Agents may have arrived before the registry did; their inherited factions resolve now.
 	RefreshAllAgents();
+}
+
+void UPWTeamsSubsystem::CreateFactionsFromSetup()
+{
+	const UWorld* World = GetWorld();
+	if (!HasAuthority() || !World || !World->IsGameWorld())
+		return;
+
+	// A faction someone already joined keeps its place; the setup only decides whether it is neutral.
+	if (const UPWTeamSetup* Setup = UPWTeamsSettings::Get()->TeamSetup.LoadSynchronous())
+		for (const FPWTeamFaction& Wanted : Setup->Factions)
+		{
+			if (Wanted.Name.IsNone())
+				continue;
+			if (FPWTeamFaction* Existing = Factions.FindByPredicate([&](const FPWTeamFaction& Each) { return Each.Name == Wanted.Name; }))
+				Existing->bNeutral = Wanted.bNeutral;
+			else
+				CreateFaction(Wanted.Name, Wanted.bNeutral);
+		}
 }

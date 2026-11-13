@@ -62,11 +62,11 @@ struct PWTEAMS_API FPWTeamFaction
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadOnly, Category="Teams")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Teams")
 	FName Name;
 
 	// A neutral faction is neither friend nor enemy to anyone.
-	UPROPERTY(BlueprintReadOnly, Category="Teams")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Teams")
 	bool bNeutral = false;
 };
 

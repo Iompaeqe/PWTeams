@@ -83,9 +83,12 @@ protected:
 	UPROPERTY(ReplicatedUsing=OnRep_Faction, EditAnywhere, BlueprintReadOnly, Category="Team")
 	EPWTeamFactionSource FactionSource = EPWTeamFactionSource::InheritFromOwner;
 
-	// Used when the faction source is Explicit.
-	UPROPERTY(ReplicatedUsing=OnRep_Faction, EditAnywhere, BlueprintReadOnly, Category="Team", meta=(EditCondition="FactionSource == EPWTeamFactionSource::Explicit"))
+	// Used when the faction source is Explicit. Lists the factions from the team setup in the PW Teams project settings.
+	UPROPERTY(ReplicatedUsing=OnRep_Faction, EditAnywhere, BlueprintReadOnly, Category="Team", meta=(EditCondition="FactionSource == EPWTeamFactionSource::Explicit", GetOptions="GetFactionOptions"))
 	FName ExplicitFaction;
+
+	UFUNCTION()
+	TArray<FName> GetFactionOptions() const;
 
 	// What this actor is, for ability filters to match on. Add your own tags under Team, for example Team.Unit.Hero or Team.Unit.Minion.
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly, Category="Team", meta=(Categories="Team"))
