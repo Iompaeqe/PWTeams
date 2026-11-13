@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Core/PWTeamsTypes.h"
+#include "GameplayTagContainer.h"
 #include "PWTeamAgentComponent.generated.h"
 
 // Connects an actor to PWTeams: which participant it is attributed to and which faction it is in. Who controls the actor plays no part. Set on the server, replicated to clients.
@@ -42,6 +43,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Team")
 	void SetExplicitFaction(FName Faction);
 
+	UFUNCTION(BlueprintPure, Category="Team")
+	const FGameplayTagContainer& GetAgentTags() const { return AgentTags; }
+
+	// Server only.
+	UFUNCTION(BlueprintCallable, Category="Team")
+	void SetAgentTags(const FGameplayTagContainer& NewTags);
+
+	UFUNCTION(BlueprintPure, Category="Team")
+	bool IsPrimary() const { return bPrimary; }
+
+	// Server only.
+	UFUNCTION(BlueprintCallable, Category="Team")
+	void SetPrimary(bool bNewPrimary);
+
 	// Server and clients.
 	UPROPERTY(BlueprintAssignable, Category="Team")
 	FPWTeamAgentOwnerChanged OnOwnerChanged;
@@ -71,6 +86,14 @@ protected:
 	// Used when the faction source is Explicit.
 	UPROPERTY(ReplicatedUsing=OnRep_Faction, EditAnywhere, BlueprintReadOnly, Category="Team", meta=(EditCondition="FactionSource == EPWTeamFactionSource::Explicit"))
 	FName ExplicitFaction;
+
+	// What this actor is, for ability filters to match on: Hero, Minion, Structure and so on. Use your own tags.
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly, Category="Team")
+	FGameplayTagContainer AgentTags;
+
+	// The participant's main character, such as a player's hero. Set for you on a player state's agent.
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly, Category="Team")
+	bool bPrimary = false;
 
 	UFUNCTION()
 	void OnRep_OwnerParticipant(FPWTeamParticipantHandle OldOwner);

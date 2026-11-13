@@ -20,6 +20,8 @@ void UPWTeamAgentComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	DOREPLIFETIME(UPWTeamAgentComponent, OwnerParticipant);
 	DOREPLIFETIME(UPWTeamAgentComponent, FactionSource);
 	DOREPLIFETIME(UPWTeamAgentComponent, ExplicitFaction);
+	DOREPLIFETIME(UPWTeamAgentComponent, AgentTags);
+	DOREPLIFETIME(UPWTeamAgentComponent, bPrimary);
 }
 
 bool UPWTeamAgentComponent::HasAuthority() const
@@ -45,6 +47,7 @@ void UPWTeamAgentComponent::OnRegister()
 		const EPWTeamParticipantType Type = PlayerState->IsABot() ? EPWTeamParticipantType::AI : EPWTeamParticipantType::Player;
 		OwnerParticipant = Teams->RegisterParticipant(FName(*PlayerState->GetPlayerName()), Type, NAME_None, PlayerState);
 		bRegisteredParticipant = OwnerParticipant.IsValid();
+		bPrimary = true;
 	}
 
 	ResolvedFaction = GetFaction();
@@ -132,4 +135,16 @@ void UPWTeamAgentComponent::OnRep_OwnerParticipant(const FPWTeamParticipantHandl
 void UPWTeamAgentComponent::OnRep_Faction()
 {
 	RefreshFaction();
+}
+
+void UPWTeamAgentComponent::SetAgentTags(const FGameplayTagContainer& NewTags)
+{
+	if (HasAuthority())
+		AgentTags = NewTags;
+}
+
+void UPWTeamAgentComponent::SetPrimary(const bool bNewPrimary)
+{
+	if (HasAuthority())
+		bPrimary = bNewPrimary;
 }

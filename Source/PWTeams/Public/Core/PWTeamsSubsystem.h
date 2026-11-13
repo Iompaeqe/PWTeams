@@ -5,7 +5,11 @@
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "Core/PWTeamsTypes.h"
+#include "Relationships/PWTeamRelationship.h"
+#include "Targeting/PWTeamTargetFilter.h"
 #include "PWTeamsSubsystem.generated.h"
+
+class UPWTeamRelationshipProvider;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPWTeamParticipantEvent, const FPWTeamParticipant&, Participant);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPWTeamFactionEvent, const FPWTeamFaction&, Faction);
@@ -19,6 +23,8 @@ class PWTEAMS_API UPWTeamsSubsystem : public UWorldSubsystem
 
 public:
 	static UPWTeamsSubsystem* Get(const UObject* WorldContext);
+
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 
 	// ---- Participants
 
@@ -106,6 +112,57 @@ public:
 	void RegisterAgent(UPWTeamAgentComponent* Agent);
 	void UnregisterAgent(UPWTeamAgentComponent* Agent);
 
+	// ---- Relationships
+
+	// What PWTeams knows about an actor: owner, faction, role and tags.
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	static FPWTeamIdentity GetIdentity(const AActor* Actor);
+
+	// The same for a participant with no actor to ask, for example the caster of a spell that outlived it.
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	FPWTeamIdentity GetParticipantIdentity(FPWTeamParticipantHandle Participant) const;
+
+	// How Source regards Target: the default rules first, then every relationship provider in order.
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	FPWTeamRelationship GetRelationship(const FPWTeamIdentity& Source, const FPWTeamIdentity& Target) const;
+
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	static FPWTeamRelationship GetActorRelationship(const AActor* Source, const AActor* Target);
+
+	// Every tag that describes Target as seen by Source. This is what ability filters match against.
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	FGameplayTagContainer GetTargetTags(const FPWTeamIdentity& Source, const FPWTeamIdentity& Target) const;
+
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	bool MatchesFilter(const FPWTeamIdentity& Source, const FPWTeamIdentity& Target, const FPWTeamTargetFilter& Filter) const;
+
+	// The one check abilities, effects and collision all use.
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	static bool ActorMatchesFilter(const AActor* Source, const AActor* Target, const FPWTeamTargetFilter& Filter);
+
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	static TArray<AActor*> FilterActors(const AActor* Source, const TArray<AActor*>& Actors, const FPWTeamTargetFilter& Filter);
+
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	static bool IsAlly(const AActor* Source, const AActor* Target);
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	static bool IsEnemy(const AActor* Source, const AActor* Target);
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	static bool IsSameOwner(const AActor* Source, const AActor* Target);
+	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
+	static bool IsSameFaction(const AActor* Source, const AActor* Target);
+
+	// Adds a game's own rules at runtime, after the ones from the project settings. Add the same ones on every machine that asks about relationships.
+	UFUNCTION(BlueprintCallable, Category="Teams|Relationships")
+	UPWTeamRelationshipProvider* AddRelationshipProvider(TSubclassOf<UPWTeamRelationshipProvider> ProviderClass);
+
+	UFUNCTION(BlueprintCallable, Category="Teams|Relationships")
+	void RemoveRelationshipProvider(UPWTeamRelationshipProvider* Provider);
+
+	// Between two different factions when neither is neutral. Starts from the project settings.
+	UPROPERTY(BlueprintReadWrite, Category="Teams|Relationships")
+	EPWTeamAttitude DefaultAttitude = EPWTeamAttitude::Hostile;
+
 	// ---- Events
 
 	UPROPERTY(BlueprintAssignable, Category="Teams")
@@ -137,6 +194,9 @@ private:
 	TArray<FPWTeamFaction> Factions;
 
 	TArray<TWeakObjectPtr<UPWTeamAgentComponent>> Agents;
+
+	UPROPERTY()
+	TArray<TObjectPtr<UPWTeamRelationshipProvider>> Providers;
 
 	int32 NextParticipantId = 1;
 };

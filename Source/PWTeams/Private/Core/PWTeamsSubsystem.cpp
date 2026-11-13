@@ -9,6 +9,9 @@
 #include "GameFramework/Pawn.h"
 #include "Agents/PWTeamAgent.h"
 #include "Agents/PWTeamAgentComponent.h"
+#include "Core/PWTeamsSettings.h"
+#include "Core/PWTeamsTags.h"
+#include "Relationships/PWTeamRelationshipProvider.h"
 
 UPWTeamsSubsystem* UPWTeamsSubsystem::Get(const UObject* WorldContext)
 {
@@ -265,4 +268,168 @@ void UPWTeamsSubsystem::RegisterAgent(UPWTeamAgentComponent* Agent)
 void UPWTeamsSubsystem::UnregisterAgent(UPWTeamAgentComponent* Agent)
 {
 	Agents.Remove(Agent);
+}
+
+void UPWTeamsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+
+	const UPWTeamsSettings* Settings = UPWTeamsSettings::Get();
+	DefaultAttitude = Settings->DefaultAttitude;
+	for (const TSoftClassPtr<UPWTeamRelationshipProvider>& ProviderClass : Settings->RelationshipProviders)
+		AddRelationshipProvider(ProviderClass.LoadSynchronous());
+}
+
+UPWTeamRelationshipProvider* UPWTeamsSubsystem::AddRelationshipProvider(const TSubclassOf<UPWTeamRelationshipProvider> ProviderClass)
+{
+	if (!ProviderClass || ProviderClass->HasAnyClassFlags(CLASS_Abstract))
+		return nullptr;
+
+	UPWTeamRelationshipProvider* Provider = NewObject<UPWTeamRelationshipProvider>(this, ProviderClass);
+	Providers.Add(Provider);
+	return Provider;
+}
+
+void UPWTeamsSubsystem::RemoveRelationshipProvider(UPWTeamRelationshipProvider* Provider)
+{
+	Providers.Remove(Provider);
+}
+
+FPWTeamIdentity UPWTeamsSubsystem::GetIdentity(const AActor* Actor)
+{
+	FPWTeamIdentity Identity;
+	Identity.Actor = Actor;
+
+	const UPWTeamAgentComponent* Agent = FindAgent(Actor);
+	if (!Agent)
+		return Identity;
+
+	Identity.Owner = Agent->GetOwnerParticipant();
+	Identity.Faction = Agent->GetFaction();
+	Identity.bPrimary = Agent->IsPrimary();
+	Identity.AgentTags = Agent->GetAgentTags();
+
+	FPWTeamFaction Faction;
+	if (const UPWTeamsSubsystem* Teams = Get(Actor); Teams && Teams->GetFaction(Identity.Faction, Faction))
+		Identity.bNeutralFaction = Faction.bNeutral;
+	return Identity;
+}
+
+FPWTeamIdentity UPWTeamsSubsystem::GetParticipantIdentity(const FPWTeamParticipantHandle Participant) const
+{
+	FPWTeamIdentity Identity;
+	Identity.Owner = Participant;
+	Identity.Faction = GetParticipantFaction(Participant);
+
+	FPWTeamFaction Faction;
+	if (GetFaction(Identity.Faction, Faction))
+		Identity.bNeutralFaction = Faction.bNeutral;
+	return Identity;
+}
+
+FPWTeamRelationship UPWTeamsSubsystem::GetRelationship(const FPWTeamIdentity& Source, const FPWTeamIdentity& Target) const
+{
+	FPWTeamRelationship Relationship;
+	Relationship.bSameActor = Source.Actor && Source.Actor == Target.Actor;
+	Relationship.bSameOwner = Source.Owner.IsValid() && Source.Owner == Target.Owner;
+	Relationship.bSameFaction = !Source.Faction.IsNone() && Source.Faction == Target.Faction;
+
+	if (Relationship.bSameActor || Relationship.bSameFaction)
+		Relationship.Attitude = EPWTeamAttitude::Friendly;
+	else if (Source.Faction.IsNone() || Target.Faction.IsNone())
+		Relationship.Attitude = EPWTeamAttitude::Unknown;
+	else if (Source.bNeutralFaction || Target.bNeutralFaction)
+		Relationship.Attitude = EPWTeamAttitude::Neutral;
+	else
+		Relationship.Attitude = DefaultAttitude;
+
+	for (const UPWTeamRelationshipProvider* Provider : Providers)
+		if (Provider)
+			Provider->ResolveRelationship(Source, Target, Relationship);
+	return Relationship;
+}
+
+FPWTeamRelationship UPWTeamsSubsystem::GetActorRelationship(const AActor* Source, const AActor* Target)
+{
+	const UPWTeamsSubsystem* Teams = Get(Target ? Target : Source);
+	return Teams ? Teams->GetRelationship(GetIdentity(Source), GetIdentity(Target)) : FPWTeamRelationship();
+}
+
+FGameplayTagContainer UPWTeamsSubsystem::GetTargetTags(const FPWTeamIdentity& Source, const FPWTeamIdentity& Target) const
+{
+	const FPWTeamRelationship Relationship = GetRelationship(Source, Target);
+
+	FGameplayTagContainer Tags = Target.AgentTags;
+	Tags.AppendTags(Relationship.Tags);
+	if (Target.bPrimary)
+		Tags.AddTag(PWTeamTags::Role_Primary);
+
+	// Self is the asking actor and nothing else, so it is not also an ally of itself.
+	if (Relationship.bSameActor)
+	{
+		Tags.AddTag(PWTeamTags::Relation_Self);
+		return Tags;
+	}
+
+	if (Relationship.bSameOwner)
+		Tags.AddTag(PWTeamTags::Relation_SameOwner);
+	if (Relationship.bSameFaction)
+		Tags.AddTag(PWTeamTags::Relation_SameFaction);
+
+	switch (Relationship.Attitude)
+	{
+	case EPWTeamAttitude::Friendly: Tags.AddTag(PWTeamTags::Relation_Ally); break;
+	case EPWTeamAttitude::Hostile: Tags.AddTag(PWTeamTags::Relation_Enemy); break;
+	case EPWTeamAttitude::Neutral: Tags.AddTag(PWTeamTags::Relation_Neutral); break;
+	default: Tags.AddTag(PWTeamTags::Relation_Unaffiliated); break;
+	}
+	return Tags;
+}
+
+bool UPWTeamsSubsystem::MatchesFilter(const FPWTeamIdentity& Source, const FPWTeamIdentity& Target, const FPWTeamTargetFilter& Filter) const
+{
+	return Filter.IsEmpty() || Filter.Matches(GetTargetTags(Source, Target));
+}
+
+bool UPWTeamsSubsystem::ActorMatchesFilter(const AActor* Source, const AActor* Target, const FPWTeamTargetFilter& Filter)
+{
+	if (Filter.IsEmpty())
+		return true;
+
+	const UPWTeamsSubsystem* Teams = Get(Target ? Target : Source);
+	return Teams && Teams->MatchesFilter(GetIdentity(Source), GetIdentity(Target), Filter);
+}
+
+TArray<AActor*> UPWTeamsSubsystem::FilterActors(const AActor* Source, const TArray<AActor*>& Actors, const FPWTeamTargetFilter& Filter)
+{
+	TArray<AActor*> Matching;
+	const UPWTeamsSubsystem* Teams = Get(Source);
+	if (!Teams)
+		return Matching;
+
+	const FPWTeamIdentity SourceIdentity = GetIdentity(Source);
+	for (AActor* Actor : Actors)
+		if (Actor && Teams->MatchesFilter(SourceIdentity, GetIdentity(Actor), Filter))
+			Matching.Add(Actor);
+	return Matching;
+}
+
+bool UPWTeamsSubsystem::IsAlly(const AActor* Source, const AActor* Target)
+{
+	return GetActorRelationship(Source, Target).Attitude == EPWTeamAttitude::Friendly;
+}
+
+bool UPWTeamsSubsystem::IsEnemy(const AActor* Source, const AActor* Target)
+{
+	return GetActorRelationship(Source, Target).Attitude == EPWTeamAttitude::Hostile;
+}
+
+bool UPWTeamsSubsystem::IsSameOwner(const AActor* Source, const AActor* Target)
+{
+	return GetActorRelationship(Source, Target).bSameOwner;
+}
+
+bool UPWTeamsSubsystem::IsSameFaction(const AActor* Source, const AActor* Target)
+{
+	return GetActorRelationship(Source, Target).bSameFaction;
 }
