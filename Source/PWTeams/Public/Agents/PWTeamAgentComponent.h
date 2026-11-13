@@ -83,7 +83,7 @@ protected:
 	UPROPERTY(ReplicatedUsing=OnRep_Faction, EditAnywhere, BlueprintReadOnly, Category="Team")
 	EPWTeamFactionSource FactionSource = EPWTeamFactionSource::InheritFromOwner;
 
-	// Used when the faction source is Explicit. Lists the factions from the team setup in the PW Teams project settings.
+	// Used when the faction source is Explicit. Lists the factions of every team setup asset in the project.
 	UPROPERTY(ReplicatedUsing=OnRep_Faction, EditAnywhere, BlueprintReadOnly, Category="Team", meta=(EditCondition="FactionSource == EPWTeamFactionSource::Explicit", GetOptions="GetFactionOptions"))
 	FName ExplicitFaction;
 

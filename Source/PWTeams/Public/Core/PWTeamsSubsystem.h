@@ -11,6 +11,7 @@
 
 class UPWTeamRelationshipProvider;
 class APWTeamRegistry;
+class UPWTeamSetup;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPWTeamParticipantEvent, const FPWTeamParticipant&, Participant);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPWTeamFactionEvent, const FPWTeamFaction&, Faction);
@@ -25,8 +26,16 @@ class PWTEAMS_API UPWTeamsSubsystem : public UWorldSubsystem
 public:
 	static UPWTeamsSubsystem* Get(const UObject* WorldContext);
 
-	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
+
+	// ---- Setup
+
+	// Server only. Gives this world its team rules, replacing whatever it had: existing factions are removed, which leaves their members without one, and the setup's factions, default attitude and relationship providers take over. Pass nothing to go back to no rules. Reaches clients by itself. Call it before players join, for example from a game mode's Init Game, or again when the game changes mode.
+	UFUNCTION(BlueprintCallable, Category="Teams|Setup")
+	void ApplyTeamSetup(UPWTeamSetup* Setup);
+
+	UFUNCTION(BlueprintPure, Category="Teams|Setup")
+	UPWTeamSetup* GetActiveSetup() const { return ActiveSetup; }
 
 	// ---- Replication
 
@@ -162,14 +171,14 @@ public:
 	UFUNCTION(BlueprintPure, Category="Teams|Relationships")
 	static bool IsSameFaction(const AActor* Source, const AActor* Target);
 
-	// Adds a game's own rules at runtime, after the ones from the project settings. Add the same ones on every machine that asks about relationships.
+	// Adds a rule on this machine only, after the ones from the team setup. Rules listed on the team setup reach clients by themselves; one added here has to be added on every machine that asks about relationships.
 	UFUNCTION(BlueprintCallable, Category="Teams|Relationships")
 	UPWTeamRelationshipProvider* AddRelationshipProvider(TSubclassOf<UPWTeamRelationshipProvider> ProviderClass);
 
 	UFUNCTION(BlueprintCallable, Category="Teams|Relationships")
 	void RemoveRelationshipProvider(UPWTeamRelationshipProvider* Provider);
 
-	// Between two different factions when neither is neutral. Starts from the project settings; change it with Set Default Attitude.
+	// Between two different factions when neither is neutral. Comes from the team setup; change it with Set Default Attitude.
 	UPROPERTY(BlueprintReadOnly, Category="Teams|Relationships")
 	EPWTeamAttitude DefaultAttitude = EPWTeamAttitude::Hostile;
 
@@ -205,8 +214,8 @@ protected:
 	// Server: copies the current state to the registry actor so it reaches clients.
 	void PushToRegistry();
 
-	// Server: creates the factions listed in the project's team setup.
-	void CreateFactionsFromSetup();
+	// Builds the relationship providers the active setup lists.
+	void RebuildSetupProviders();
 
 private:
 	UPROPERTY()
@@ -218,6 +227,12 @@ private:
 
 	UPROPERTY()
 	TArray<TObjectPtr<UPWTeamRelationshipProvider>> Providers;
+
+	UPROPERTY()
+	TArray<TObjectPtr<UPWTeamRelationshipProvider>> SetupProviders;
+
+	UPROPERTY()
+	TObjectPtr<UPWTeamSetup> ActiveSetup;
 
 	UPROPERTY()
 	TObjectPtr<APWTeamRegistry> Registry;

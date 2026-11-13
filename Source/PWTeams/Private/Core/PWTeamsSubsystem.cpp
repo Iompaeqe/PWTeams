@@ -9,7 +9,6 @@
 #include "GameFramework/Pawn.h"
 #include "Agents/PWTeamAgent.h"
 #include "Agents/PWTeamAgentComponent.h"
-#include "Core/PWTeamsSettings.h"
 #include "Core/PWTeamSetup.h"
 #include "Core/PWTeamsTags.h"
 #include "Relationships/PWTeamRelationshipProvider.h"
@@ -277,16 +276,6 @@ void UPWTeamsSubsystem::UnregisterAgent(UPWTeamAgentComponent* Agent)
 	Agents.Remove(Agent);
 }
 
-void UPWTeamsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
-{
-	Super::Initialize(Collection);
-
-	const UPWTeamsSettings* Settings = UPWTeamsSettings::Get();
-	DefaultAttitude = Settings->DefaultAttitude;
-	for (const TSoftClassPtr<UPWTeamRelationshipProvider>& ProviderClass : Settings->RelationshipProviders)
-		AddRelationshipProvider(ProviderClass.LoadSynchronous());
-}
-
 UPWTeamRelationshipProvider* UPWTeamsSubsystem::AddRelationshipProvider(const TSubclassOf<UPWTeamRelationshipProvider> ProviderClass)
 {
 	if (!ProviderClass || ProviderClass->HasAnyClassFlags(CLASS_Abstract))
@@ -350,6 +339,9 @@ FPWTeamRelationship UPWTeamsSubsystem::GetRelationship(const FPWTeamIdentity& So
 	else
 		Relationship.Attitude = DefaultAttitude;
 
+	for (const UPWTeamRelationshipProvider* Provider : SetupProviders)
+		if (Provider)
+			Provider->ResolveRelationship(Source, Target, Relationship);
 	for (const UPWTeamRelationshipProvider* Provider : Providers)
 		if (Provider)
 			Provider->ResolveRelationship(Source, Target, Relationship);
@@ -444,7 +436,6 @@ bool UPWTeamsSubsystem::IsSameFaction(const AActor* Source, const AActor* Target
 void UPWTeamsSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
-	CreateFactionsFromSetup();
 	PushToRegistry();
 }
 
@@ -467,6 +458,7 @@ void UPWTeamsSubsystem::PushToRegistry()
 	Registry->Participants = Participants;
 	Registry->Factions = Factions;
 	Registry->DefaultAttitude = DefaultAttitude;
+	Registry->ActiveSetup = ActiveSetup;
 	Registry->ForceNetUpdate();
 }
 
@@ -495,6 +487,12 @@ void UPWTeamsSubsystem::ApplyReplicatedState(const APWTeamRegistry& From)
 	Participants = From.Participants;
 	Factions = From.Factions;
 	DefaultAttitude = From.DefaultAttitude;
+	if (ActiveSetup != From.ActiveSetup)
+	{
+		// The client builds the same rules the server runs.
+		ActiveSetup = From.ActiveSetup;
+		RebuildSetupProviders();
+	}
 
 	const auto FindFaction = [](const TArray<FPWTeamFaction>& In, const FName Name) { return In.FindByPredicate([&](const FPWTeamFaction& Each) { return Each.Name == Name; }); };
 	const auto FindIn = [](const TArray<FPWTeamParticipant>& In, const FPWTeamParticipantHandle Handle) { return In.FindByPredicate([&](const FPWTeamParticipant& Each) { return Each.Handle == Handle; }); };
@@ -528,21 +526,35 @@ void UPWTeamsSubsystem::ApplyReplicatedState(const APWTeamRegistry& From)
 	RefreshAllAgents();
 }
 
-void UPWTeamsSubsystem::CreateFactionsFromSetup()
+void UPWTeamsSubsystem::ApplyTeamSetup(UPWTeamSetup* Setup)
 {
-	const UWorld* World = GetWorld();
-	if (!HasAuthority() || !World || !World->IsGameWorld())
+	if (!HasAuthority())
 		return;
 
-	// A faction someone already joined keeps its place; the setup only decides whether it is neutral.
-	if (const UPWTeamSetup* Setup = UPWTeamsSettings::Get()->TeamSetup.LoadSynchronous())
-		for (const FPWTeamFaction& Wanted : Setup->Factions)
-		{
-			if (Wanted.Name.IsNone())
-				continue;
-			if (FPWTeamFaction* Existing = Factions.FindByPredicate([&](const FPWTeamFaction& Each) { return Each.Name == Wanted.Name; }))
-				Existing->bNeutral = Wanted.bNeutral;
-			else
-				CreateFaction(Wanted.Name, Wanted.bNeutral);
-		}
+	// A new setup means new sides: the old factions go, and their members wait to be assigned again.
+	const TArray<FPWTeamFaction> OldFactions = Factions;
+	for (const FPWTeamFaction& Faction : OldFactions)
+		DestroyFaction(Faction.Name);
+
+	ActiveSetup = Setup;
+	DefaultAttitude = Setup ? Setup->DefaultAttitude : EPWTeamAttitude::Hostile;
+	RebuildSetupProviders();
+
+	if (Setup)
+		for (const FPWTeamFaction& Faction : Setup->Factions)
+			CreateFaction(Faction.Name, Faction.bNeutral);
+
+	RefreshAllAgents();
+	PushToRegistry();
+}
+
+void UPWTeamsSubsystem::RebuildSetupProviders()
+{
+	SetupProviders.Reset();
+	if (!ActiveSetup)
+		return;
+
+	for (const TSubclassOf<UPWTeamRelationshipProvider>& ProviderClass : ActiveSetup->RelationshipProviders)
+		if (ProviderClass && !ProviderClass->HasAnyClassFlags(CLASS_Abstract))
+			SetupProviders.Add(NewObject<UPWTeamRelationshipProvider>(this, ProviderClass));
 }

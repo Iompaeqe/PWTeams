@@ -26,6 +26,10 @@ public:
 	UPROPERTY(ReplicatedUsing=OnRep_State)
 	EPWTeamAttitude DefaultAttitude = EPWTeamAttitude::Hostile;
 
+	// Which team setup the server applied, so clients run the same relationship rules.
+	UPROPERTY(ReplicatedUsing=OnRep_State)
+	TObjectPtr<class UPWTeamSetup> ActiveSetup;
+
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 protected:

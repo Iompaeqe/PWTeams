@@ -4,6 +4,7 @@
 #include "Replication/PWTeamRegistry.h"
 
 #include "Core/PWTeamsSubsystem.h"
+#include "Core/PWTeamSetup.h"
 #include "Net/UnrealNetwork.h"
 
 APWTeamRegistry::APWTeamRegistry()
@@ -20,6 +21,7 @@ void APWTeamRegistry::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(APWTeamRegistry, Participants);
 	DOREPLIFETIME(APWTeamRegistry, Factions);
 	DOREPLIFETIME(APWTeamRegistry, DefaultAttitude);
+	DOREPLIFETIME(APWTeamRegistry, ActiveSetup);
 }
 
 void APWTeamRegistry::OnRep_State()

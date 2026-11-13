@@ -27,7 +27,7 @@ public class PWTeams : ModuleRules
 			{
 				"Core",
 				"GameplayTags",
-				"DeveloperSettings",
+				"AssetRegistry",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
