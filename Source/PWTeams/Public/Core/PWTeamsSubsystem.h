@@ -10,6 +10,7 @@
 #include "PWTeamsSubsystem.generated.h"
 
 class UPWTeamRelationshipProvider;
+class APWTeamRegistry;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPWTeamParticipantEvent, const FPWTeamParticipant&, Participant);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPWTeamFactionEvent, const FPWTeamFaction&, Faction);
@@ -25,6 +26,15 @@ public:
 	static UPWTeamsSubsystem* Get(const UObject* WorldContext);
 
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
+
+	// ---- Replication
+
+	// The actor that carries the team state to clients. The server spawns it by itself.
+	APWTeamRegistry* GetRegistry() const { return Registry; }
+
+	// Called on a client when team state arrives from the server. Tells listeners what changed.
+	void ApplyReplicatedState(const APWTeamRegistry& From);
 
 	// ---- Participants
 
@@ -159,9 +169,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Teams|Relationships")
 	void RemoveRelationshipProvider(UPWTeamRelationshipProvider* Provider);
 
-	// Between two different factions when neither is neutral. Starts from the project settings.
-	UPROPERTY(BlueprintReadWrite, Category="Teams|Relationships")
+	// Between two different factions when neither is neutral. Starts from the project settings; change it with Set Default Attitude.
+	UPROPERTY(BlueprintReadOnly, Category="Teams|Relationships")
 	EPWTeamAttitude DefaultAttitude = EPWTeamAttitude::Hostile;
+
+	// Server only. Reaches clients with the rest of the team state.
+	UFUNCTION(BlueprintCallable, Category="Teams|Relationships")
+	void SetDefaultAttitude(EPWTeamAttitude NewAttitude);
 
 	// ---- Events
 
@@ -186,6 +200,10 @@ protected:
 	const FPWTeamParticipant* FindParticipant(FPWTeamParticipantHandle Participant) const;
 	void SetParticipantFaction(FPWTeamParticipant& Participant, FName NewFaction);
 	void RefreshAgentsOf(FPWTeamParticipantHandle Participant);
+	void RefreshAllAgents();
+
+	// Server: copies the current state to the registry actor so it reaches clients.
+	void PushToRegistry();
 
 private:
 	UPROPERTY()
@@ -197,6 +215,9 @@ private:
 
 	UPROPERTY()
 	TArray<TObjectPtr<UPWTeamRelationshipProvider>> Providers;
+
+	UPROPERTY()
+	TObjectPtr<APWTeamRegistry> Registry;
 
 	int32 NextParticipantId = 1;
 };

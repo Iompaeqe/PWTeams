@@ -12,6 +12,7 @@
 #include "Core/PWTeamsSettings.h"
 #include "Core/PWTeamsTags.h"
 #include "Relationships/PWTeamRelationshipProvider.h"
+#include "Replication/PWTeamRegistry.h"
 
 UPWTeamsSubsystem* UPWTeamsSubsystem::Get(const UObject* WorldContext)
 {
@@ -51,6 +52,7 @@ FPWTeamParticipantHandle UPWTeamsSubsystem::RegisterParticipant(const FName Name
 
 	if (!Faction.IsNone())
 		AssignParticipantToFaction(Handle, Faction);
+	PushToRegistry();
 	return Handle;
 }
 
@@ -67,6 +69,7 @@ bool UPWTeamsSubsystem::UnregisterParticipant(const FPWTeamParticipantHandle Par
 	Participants.RemoveAt(Index);
 	OnParticipantUnregistered.Broadcast(Removed);
 	RefreshAgentsOf(Participant);
+	PushToRegistry();
 	return true;
 }
 
@@ -97,6 +100,7 @@ bool UPWTeamsSubsystem::CreateFaction(const FName Name, const bool bNeutral)
 	Faction.Name = Name;
 	Faction.bNeutral = bNeutral;
 	OnFactionCreated.Broadcast(Faction);
+	PushToRegistry();
 	return true;
 }
 
@@ -116,6 +120,7 @@ bool UPWTeamsSubsystem::DestroyFaction(const FName Name)
 	const FPWTeamFaction Removed = Factions[Index];
 	Factions.RemoveAt(Index);
 	OnFactionDestroyed.Broadcast(Removed);
+	PushToRegistry();
 	return true;
 }
 
@@ -177,6 +182,7 @@ void UPWTeamsSubsystem::SetParticipantFaction(FPWTeamParticipant& Participant, c
 	Participant.Faction = NewFaction;
 	OnParticipantFactionChanged.Broadcast(Handle, OldFaction, NewFaction);
 	RefreshAgentsOf(Handle);
+	PushToRegistry();
 }
 
 void UPWTeamsSubsystem::RefreshAgentsOf(const FPWTeamParticipantHandle Participant)
@@ -432,4 +438,90 @@ bool UPWTeamsSubsystem::IsSameOwner(const AActor* Source, const AActor* Target)
 bool UPWTeamsSubsystem::IsSameFaction(const AActor* Source, const AActor* Target)
 {
 	return GetActorRelationship(Source, Target).bSameFaction;
+}
+
+void UPWTeamsSubsystem::OnWorldBeginPlay(UWorld& InWorld)
+{
+	Super::OnWorldBeginPlay(InWorld);
+	PushToRegistry();
+}
+
+void UPWTeamsSubsystem::PushToRegistry()
+{
+	UWorld* World = GetWorld();
+	if (!HasAuthority() || !World || !World->IsGameWorld() || !World->AreActorsInitialized())
+		return;
+
+	if (!Registry)
+	{
+		FActorSpawnParameters SpawnParameters;
+		SpawnParameters.ObjectFlags |= RF_Transient;
+		SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		Registry = World->SpawnActor<APWTeamRegistry>(SpawnParameters);
+	}
+	if (!Registry)
+		return;
+
+	Registry->Participants = Participants;
+	Registry->Factions = Factions;
+	Registry->DefaultAttitude = DefaultAttitude;
+	Registry->ForceNetUpdate();
+}
+
+void UPWTeamsSubsystem::SetDefaultAttitude(const EPWTeamAttitude NewAttitude)
+{
+	if (!HasAuthority() || DefaultAttitude == NewAttitude)
+		return;
+
+	DefaultAttitude = NewAttitude;
+	PushToRegistry();
+}
+
+void UPWTeamsSubsystem::RefreshAllAgents()
+{
+	const TArray<TWeakObjectPtr<UPWTeamAgentComponent>> Snapshot = Agents;
+	for (const TWeakObjectPtr<UPWTeamAgentComponent>& Agent : Snapshot)
+		if (Agent.IsValid())
+			Agent->RefreshFaction();
+}
+
+void UPWTeamsSubsystem::ApplyReplicatedState(const APWTeamRegistry& From)
+{
+	const TArray<FPWTeamParticipant> OldParticipants = MoveTemp(Participants);
+	const TArray<FPWTeamFaction> OldFactions = MoveTemp(Factions);
+
+	Participants = From.Participants;
+	Factions = From.Factions;
+	DefaultAttitude = From.DefaultAttitude;
+
+	const auto FindFaction = [](const TArray<FPWTeamFaction>& In, const FName Name) { return In.FindByPredicate([&](const FPWTeamFaction& Each) { return Each.Name == Name; }); };
+	const auto FindIn = [](const TArray<FPWTeamParticipant>& In, const FPWTeamParticipantHandle Handle) { return In.FindByPredicate([&](const FPWTeamParticipant& Each) { return Each.Handle == Handle; }); };
+
+	// Listeners may change nothing here, but work from copies so a callback cannot disturb the loops.
+	const TArray<FPWTeamParticipant> NewParticipants = Participants;
+	const TArray<FPWTeamFaction> NewFactions = Factions;
+
+	for (const FPWTeamFaction& Faction : NewFactions)
+		if (!FindFaction(OldFactions, Faction.Name))
+			OnFactionCreated.Broadcast(Faction);
+
+	for (const FPWTeamParticipant& Participant : NewParticipants)
+	{
+		const FPWTeamParticipant* Old = FindIn(OldParticipants, Participant.Handle);
+		if (!Old)
+			OnParticipantRegistered.Broadcast(Participant);
+		if ((Old ? Old->Faction : NAME_None) != Participant.Faction)
+			OnParticipantFactionChanged.Broadcast(Participant.Handle, Old ? Old->Faction : NAME_None, Participant.Faction);
+	}
+
+	for (const FPWTeamParticipant& Participant : OldParticipants)
+		if (!FindIn(NewParticipants, Participant.Handle))
+			OnParticipantUnregistered.Broadcast(Participant);
+
+	for (const FPWTeamFaction& Faction : OldFactions)
+		if (!FindFaction(NewFactions, Faction.Name))
+			OnFactionDestroyed.Broadcast(Faction);
+
+	// Agents may have arrived before the registry did; their inherited factions resolve now.
+	RefreshAllAgents();
 }
