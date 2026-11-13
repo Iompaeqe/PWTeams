@@ -6,6 +6,9 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerState.h"
+#include "GameFramework/Pawn.h"
+#include "Agents/PWTeamAgent.h"
+#include "Agents/PWTeamAgentComponent.h"
 
 UPWTeamsSubsystem* UPWTeamsSubsystem::Get(const UObject* WorldContext)
 {
@@ -60,6 +63,7 @@ bool UPWTeamsSubsystem::UnregisterParticipant(const FPWTeamParticipantHandle Par
 	const FPWTeamParticipant Removed = Participants[Index];
 	Participants.RemoveAt(Index);
 	OnParticipantUnregistered.Broadcast(Removed);
+	RefreshAgentsOf(Participant);
 	return true;
 }
 
@@ -169,4 +173,96 @@ void UPWTeamsSubsystem::SetParticipantFaction(FPWTeamParticipant& Participant, c
 	const FPWTeamParticipantHandle Handle = Participant.Handle;
 	Participant.Faction = NewFaction;
 	OnParticipantFactionChanged.Broadcast(Handle, OldFaction, NewFaction);
+	RefreshAgentsOf(Handle);
+}
+
+void UPWTeamsSubsystem::RefreshAgentsOf(const FPWTeamParticipantHandle Participant)
+{
+	// Agents that inherit their faction follow their owner.
+	const TArray<TWeakObjectPtr<UPWTeamAgentComponent>> Snapshot = Agents;
+	for (const TWeakObjectPtr<UPWTeamAgentComponent>& Agent : Snapshot)
+		if (Agent.IsValid() && Agent->GetOwnerParticipant() == Participant)
+			Agent->RefreshFaction();
+}
+
+UPWTeamAgentComponent* UPWTeamsSubsystem::FindAgent(const AActor* Actor)
+{
+	if (!Actor)
+		return nullptr;
+
+	if (Actor->Implements<UPWTeamAgent>())
+		if (UPWTeamAgentComponent* Agent = IPWTeamAgent::Execute_GetTeamAgent(Actor))
+			return Agent;
+	if (UPWTeamAgentComponent* Agent = Actor->FindComponentByClass<UPWTeamAgentComponent>())
+		return Agent;
+
+	const APawn* Pawn = Cast<APawn>(Actor);
+	const APlayerState* PlayerState = Pawn ? Pawn->GetPlayerState() : nullptr;
+	return PlayerState ? PlayerState->FindComponentByClass<UPWTeamAgentComponent>() : nullptr;
+}
+
+FPWTeamParticipantHandle UPWTeamsSubsystem::GetAgentOwner(const AActor* Actor)
+{
+	const UPWTeamAgentComponent* Agent = FindAgent(Actor);
+	return Agent ? Agent->GetOwnerParticipant() : FPWTeamParticipantHandle();
+}
+
+FName UPWTeamsSubsystem::GetAgentFaction(const AActor* Actor)
+{
+	const UPWTeamAgentComponent* Agent = FindAgent(Actor);
+	return Agent ? Agent->GetFaction() : NAME_None;
+}
+
+bool UPWTeamsSubsystem::SetAgentOwner(AActor* Actor, const FPWTeamParticipantHandle Participant)
+{
+	UPWTeamAgentComponent* Agent = FindAgent(Actor);
+	if (Agent)
+		Agent->SetOwnerParticipant(Participant);
+	return Agent && Agent->GetOwnerParticipant() == Participant;
+}
+
+bool UPWTeamsSubsystem::SetAgentFaction(AActor* Actor, const FName Faction)
+{
+	UPWTeamAgentComponent* Agent = FindAgent(Actor);
+	if (Agent)
+		Agent->SetExplicitFaction(Faction);
+	return Agent && Agent->GetFactionSource() == EPWTeamFactionSource::Explicit && Agent->GetFaction() == Faction;
+}
+
+bool UPWTeamsSubsystem::SetAgentFactionSource(AActor* Actor, const EPWTeamFactionSource Source)
+{
+	UPWTeamAgentComponent* Agent = FindAgent(Actor);
+	if (Agent)
+		Agent->SetFactionSource(Source);
+	return Agent && Agent->GetFactionSource() == Source;
+}
+
+TArray<AActor*> UPWTeamsSubsystem::GetAgentsOwnedBy(const FPWTeamParticipantHandle Participant) const
+{
+	TArray<AActor*> Actors;
+	if (Participant.IsValid())
+		for (const TWeakObjectPtr<UPWTeamAgentComponent>& Agent : Agents)
+			if (Agent.IsValid() && Agent->GetOwnerParticipant() == Participant)
+				Actors.Add(Agent->GetOwner());
+	return Actors;
+}
+
+TArray<AActor*> UPWTeamsSubsystem::GetAgentsInFaction(const FName Faction) const
+{
+	TArray<AActor*> Actors;
+	if (!Faction.IsNone())
+		for (const TWeakObjectPtr<UPWTeamAgentComponent>& Agent : Agents)
+			if (Agent.IsValid() && Agent->GetFaction() == Faction)
+				Actors.Add(Agent->GetOwner());
+	return Actors;
+}
+
+void UPWTeamsSubsystem::RegisterAgent(UPWTeamAgentComponent* Agent)
+{
+	Agents.AddUnique(Agent);
+}
+
+void UPWTeamsSubsystem::UnregisterAgent(UPWTeamAgentComponent* Agent)
+{
+	Agents.Remove(Agent);
 }

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025 Metehan Goksel Kurtulan (Iompaeqe)
+// Copyright (c) 2025 Metehan Goksel Kurtulan (Iompaeqe)
 
 #pragma once
 
@@ -6,20 +6,20 @@
 #include "UObject/Interface.h"
 #include "PWTeamAgent.generated.h"
 
+class UPWTeamAgentComponent;
+
 UINTERFACE(BlueprintType)
 class PWTEAMS_API UPWTeamAgent : public UInterface
 {
 	GENERATED_BODY()
 };
 
+// For an actor whose team identity lives somewhere else. A character returns its player state's agent, so a player has one identity whatever it controls.
 class PWTEAMS_API IPWTeamAgent
 {
 	GENERATED_BODY()
 
 public:
-	virtual int32 GetTeamId() const = 0;
-
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="Team")
-	int32 GetTeamId_BP() const;
-	virtual int32 GetTeamId_BP_Implementation() const { return GetTeamId(); }
+	UPWTeamAgentComponent* GetTeamAgent() const;
 };

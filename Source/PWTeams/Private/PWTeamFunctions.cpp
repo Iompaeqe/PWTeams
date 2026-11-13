@@ -3,7 +3,6 @@
 
 #include "PWTeamFunctions.h"
 
-#include "PWTeamAgent.h"
 #include "PWTeamComponent.h"
 #include "Ability/PWSpellParams.h"
 #include "GameFramework/Pawn.h"
@@ -13,8 +12,6 @@ int32 UPWTeamFunctions::GetTeamId(const AActor* Actor)
 {
 	if (!Actor) return 0;
 
-	if (Actor->Implements<UPWTeamAgent>())
-		return IPWTeamAgent::Execute_GetTeamId_BP(Actor);
 	if (const UPWTeamComponent* Team = Actor->FindComponentByClass<UPWTeamComponent>())
 		return Team->GetTeamId();
 

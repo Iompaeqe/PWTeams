@@ -71,6 +71,41 @@ public:
 	UFUNCTION(BlueprintPure, Category="Teams|Membership")
 	FName GetParticipantFaction(FPWTeamParticipantHandle Participant) const;
 
+	// ---- Agents
+
+	// The agent component that speaks for an actor: through IPWTeamAgent, then a component on the actor, then a pawn's player state.
+	UFUNCTION(BlueprintPure, Category="Teams|Agents")
+	static UPWTeamAgentComponent* FindAgent(const AActor* Actor);
+
+	// The participant an actor is attributed to. Use it to credit damage and kills to the player behind a summon.
+	UFUNCTION(BlueprintPure, Category="Teams|Agents")
+	static FPWTeamParticipantHandle GetAgentOwner(const AActor* Actor);
+
+	// The faction an actor is in right now; None for no faction or no agent.
+	UFUNCTION(BlueprintPure, Category="Teams|Agents")
+	static FName GetAgentFaction(const AActor* Actor);
+
+	// Server only.
+	UFUNCTION(BlueprintCallable, Category="Teams|Agents")
+	static bool SetAgentOwner(AActor* Actor, FPWTeamParticipantHandle Participant);
+
+	// Server only. Gives the actor a faction of its own, whatever its owner's is.
+	UFUNCTION(BlueprintCallable, Category="Teams|Agents")
+	static bool SetAgentFaction(AActor* Actor, FName Faction);
+
+	// Server only.
+	UFUNCTION(BlueprintCallable, Category="Teams|Agents")
+	static bool SetAgentFactionSource(AActor* Actor, EPWTeamFactionSource Source);
+
+	UFUNCTION(BlueprintPure, Category="Teams|Agents")
+	TArray<AActor*> GetAgentsOwnedBy(FPWTeamParticipantHandle Participant) const;
+
+	UFUNCTION(BlueprintPure, Category="Teams|Agents")
+	TArray<AActor*> GetAgentsInFaction(FName Faction) const;
+
+	void RegisterAgent(UPWTeamAgentComponent* Agent);
+	void UnregisterAgent(UPWTeamAgentComponent* Agent);
+
 	// ---- Events
 
 	UPROPERTY(BlueprintAssignable, Category="Teams")
@@ -83,18 +118,25 @@ public:
 	FPWTeamFactionEvent OnFactionDestroyed;
 	UPROPERTY(BlueprintAssignable, Category="Teams")
 	FPWTeamParticipantFactionChanged OnParticipantFactionChanged;
+	UPROPERTY(BlueprintAssignable, Category="Teams")
+	FPWTeamAgentOwnerChanged OnAgentOwnerChanged;
+	UPROPERTY(BlueprintAssignable, Category="Teams")
+	FPWTeamAgentFactionChanged OnAgentFactionChanged;
 
 protected:
 	bool HasAuthority() const;
 	FPWTeamParticipant* FindParticipant(FPWTeamParticipantHandle Participant);
 	const FPWTeamParticipant* FindParticipant(FPWTeamParticipantHandle Participant) const;
 	void SetParticipantFaction(FPWTeamParticipant& Participant, FName NewFaction);
+	void RefreshAgentsOf(FPWTeamParticipantHandle Participant);
 
 private:
 	UPROPERTY()
 	TArray<FPWTeamParticipant> Participants;
 	UPROPERTY()
 	TArray<FPWTeamFaction> Factions;
+
+	TArray<TWeakObjectPtr<UPWTeamAgentComponent>> Agents;
 
 	int32 NextParticipantId = 1;
 };

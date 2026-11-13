@@ -6,6 +6,7 @@
 #include "PWTeamsTypes.generated.h"
 
 class APlayerState;
+class UPWTeamAgentComponent;
 
 // Identifies a participant. Given out by the server; an empty handle is nobody.
 USTRUCT(BlueprintType)
@@ -68,3 +69,18 @@ struct PWTEAMS_API FPWTeamFaction
 	UPROPERTY(BlueprintReadOnly, Category="Teams")
 	bool bNeutral = false;
 };
+
+// Where an agent gets its faction from.
+UENUM(BlueprintType)
+enum class EPWTeamFactionSource : uint8
+{
+	// No faction.
+	None,
+	// The faction of the participant that owns it, following that participant if it changes sides.
+	InheritFromOwner,
+	// A faction of its own, whatever its owner's is.
+	Explicit
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FPWTeamAgentOwnerChanged, UPWTeamAgentComponent*, Agent, FPWTeamParticipantHandle, OldOwner, FPWTeamParticipantHandle, NewOwner);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FPWTeamAgentFactionChanged, UPWTeamAgentComponent*, Agent, FName, OldFaction, FName, NewFaction);
