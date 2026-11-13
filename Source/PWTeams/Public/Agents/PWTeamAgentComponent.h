@@ -87,8 +87,8 @@ protected:
 	UPROPERTY(ReplicatedUsing=OnRep_Faction, EditAnywhere, BlueprintReadOnly, Category="Team", meta=(EditCondition="FactionSource == EPWTeamFactionSource::Explicit"))
 	FName ExplicitFaction;
 
-	// What this actor is, for ability filters to match on: Hero, Minion, Structure and so on. Use your own tags.
-	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly, Category="Team")
+	// What this actor is, for ability filters to match on. Add your own tags under Team, for example Team.Unit.Hero or Team.Unit.Minion.
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly, Category="Team", meta=(Categories="Team"))
 	FGameplayTagContainer AgentTags;
 
 	// The participant's main character, such as a player's hero. Set for you on a player state's agent.
