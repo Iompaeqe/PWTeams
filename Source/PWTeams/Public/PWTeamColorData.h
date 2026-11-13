@@ -3,17 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TeamTypes.h"
+#include "PWTeamTypes.h"
 #include "Engine/DataAsset.h"
-#include "TeamColorData.generated.h"
+#include "PWTeamColorData.generated.h"
 
 UCLASS()
-class PWTEAMS_API UTeamColorData : public UDataAsset
+class PWTEAMS_API UPWTeamColorData : public UDataAsset
 {
 	GENERATED_BODY()
 
 public:
 	// Color palette for each team id.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TMap<int32, FTeamPalette> Teams;
+	TMap<int32, FPWTeamPalette> Teams;
 };

@@ -3,10 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TeamTypes.generated.h" 
+#include "PWTeamTypes.generated.h" 
 
 USTRUCT(BlueprintType)
-struct PWTEAMS_API FTeamColor
+struct PWTEAMS_API FPWTeamColor
 {
 	GENERATED_BODY()
 	// Main team color.
@@ -18,12 +18,12 @@ struct PWTEAMS_API FTeamColor
 };
 
 USTRUCT(BlueprintType)
-struct PWTEAMS_API FTeamPalette
+struct PWTEAMS_API FPWTeamPalette
 {
 	GENERATED_BODY()
 	// Colors shared by the whole team.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FTeamColor TeamBase;
+	FPWTeamColor TeamBase;
 	// Colors handed out to individual players of the team.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FLinearColor> PlayerSwatch;

@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "TeamComponent.generated.h"
+#include "PWTeamComponent.generated.h"
 
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class PWTEAMS_API UTeamComponent : public UActorComponent
+class PWTEAMS_API UPWTeamComponent : public UActorComponent
 {
 	GENERATED_BODY()
 

@@ -4,14 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "TeamFunctions.generated.h"
+#include "PWTeamFunctions.generated.h"
 
 UENUM(BlueprintType)
 // Neutral is an actor without a team, such as a prop.
-enum class ERelation : uint8 { Unknown, Self, Ally, Enemy, Neutral };
+enum class EPWRelation : uint8 { Unknown, Self, Ally, Enemy, Neutral };
 
 UCLASS()
-class PWTEAMS_API UTeamFunctions : public UBlueprintFunctionLibrary
+class PWTEAMS_API UPWTeamFunctions : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 
@@ -26,10 +26,10 @@ public:
 	static bool AreEnemies(const AActor* A, const AActor* B);
 
 	UFUNCTION(BlueprintPure, Category="Team")
-	static bool EnumMaskHas(ERelationMask Mask, ERelationMask Flag);
+	static bool EnumMaskHas(EPWRelationMask Mask, EPWRelationMask Flag);
 
 	UFUNCTION(BlueprintPure, Category="Team")
-	static ERelation GetRelation(const AActor* A, const AActor* B);
+	static EPWRelation GetRelation(const AActor* A, const AActor* B);
 
 	UFUNCTION(BlueprintPure, Category="Team")
 	static bool MatchesMask(const AActor* A, const AActor* B, uint8 MaskByte);

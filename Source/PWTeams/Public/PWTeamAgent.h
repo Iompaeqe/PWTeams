@@ -4,15 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
-#include "TeamAgent.generated.h"
+#include "PWTeamAgent.generated.h"
 
 UINTERFACE(BlueprintType)
-class PWTEAMS_API UTeamAgent : public UInterface
+class PWTEAMS_API UPWTeamAgent : public UInterface
 {
 	GENERATED_BODY()
 };
 
-class PWTEAMS_API ITeamAgent
+class PWTEAMS_API IPWTeamAgent
 {
 	GENERATED_BODY()
 
