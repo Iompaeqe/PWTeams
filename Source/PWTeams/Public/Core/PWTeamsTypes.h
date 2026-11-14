@@ -70,7 +70,13 @@ struct PWTEAMS_API FPWTeamFaction
 	bool bNeutral = false;
 };
 
-// Where an agent gets its faction from.
+namespace PWTeamFactions
+{
+	// The faction setting that makes an agent follow the faction of the participant it belongs to.
+	PWTEAMS_API extern const FName InheritFromOwner;
+}
+
+// Where an agent gets its faction from, read from its faction setting.
 UENUM(BlueprintType)
 enum class EPWTeamFactionSource : uint8
 {

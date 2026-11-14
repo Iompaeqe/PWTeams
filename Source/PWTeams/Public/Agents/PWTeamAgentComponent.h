@@ -24,10 +24,14 @@ public:
 	UFUNCTION(BlueprintPure, Category="Team")
 	FPWTeamParticipantHandle GetOwnerParticipant() const { return OwnerParticipant; }
 
+	// As picked in the Faction dropdown: None, Inherit From Owner, or a faction name.
 	UFUNCTION(BlueprintPure, Category="Team")
-	EPWTeamFactionSource GetFactionSource() const { return FactionSource; }
+	FName GetFactionSetting() const { return FactionSetting; }
 
-	// The faction this agent is in right now, after applying its faction source; None for no faction.
+	UFUNCTION(BlueprintPure, Category="Team")
+	EPWTeamFactionSource GetFactionSource() const;
+
+	// The faction this agent is in right now, after following its owner if it inherits; None for no faction.
 	UFUNCTION(BlueprintPure, Category="Team")
 	FName GetFaction() const;
 
@@ -35,13 +39,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Team")
 	void SetOwnerParticipant(FPWTeamParticipantHandle NewOwner);
 
-	// Server only.
+	// Server only. The same choices as the Faction dropdown: None, Inherit From Owner, or a faction of its own.
 	UFUNCTION(BlueprintCallable, Category="Team")
-	void SetFactionSource(EPWTeamFactionSource NewSource);
+	void SetFaction(FName NewFaction);
 
-	// Server only. Also switches the faction source to Explicit.
+	// Server only. Follow the faction of the participant this agent belongs to.
 	UFUNCTION(BlueprintCallable, Category="Team")
-	void SetExplicitFaction(FName Faction);
+	void InheritFactionFromOwner();
 
 	UFUNCTION(BlueprintPure, Category="Team")
 	const FGameplayTagContainer& GetAgentTags() const { return AgentTags; }
@@ -80,12 +84,9 @@ protected:
 	UPROPERTY(ReplicatedUsing=OnRep_OwnerParticipant, BlueprintReadOnly, Category="Team")
 	FPWTeamParticipantHandle OwnerParticipant;
 
-	UPROPERTY(ReplicatedUsing=OnRep_Faction, EditAnywhere, BlueprintReadOnly, Category="Team")
-	EPWTeamFactionSource FactionSource = EPWTeamFactionSource::InheritFromOwner;
-
-	// Used when the faction source is Explicit. Lists the factions of every team setup asset in the project.
-	UPROPERTY(ReplicatedUsing=OnRep_Faction, EditAnywhere, BlueprintReadOnly, Category="Team", meta=(EditCondition="FactionSource == EPWTeamFactionSource::Explicit", GetOptions="GetFactionOptions"))
-	FName ExplicitFaction;
+	// None, Inherit From Owner (the faction of the participant it belongs to, following it if it changes sides), or a faction of its own. Lists the factions of every team setup asset in the project.
+	UPROPERTY(ReplicatedUsing=OnRep_Faction, EditAnywhere, BlueprintReadOnly, Category="Team", meta=(DisplayName="Faction", GetOptions="GetFactionOptions"))
+	FName FactionSetting;
 
 	UFUNCTION()
 	TArray<FName> GetFactionOptions() const;

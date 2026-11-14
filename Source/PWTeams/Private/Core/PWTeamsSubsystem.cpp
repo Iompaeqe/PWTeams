@@ -234,16 +234,8 @@ bool UPWTeamsSubsystem::SetAgentFaction(AActor* Actor, const FName Faction)
 {
 	UPWTeamAgentComponent* Agent = FindAgent(Actor);
 	if (Agent)
-		Agent->SetExplicitFaction(Faction);
-	return Agent && Agent->GetFactionSource() == EPWTeamFactionSource::Explicit && Agent->GetFaction() == Faction;
-}
-
-bool UPWTeamsSubsystem::SetAgentFactionSource(AActor* Actor, const EPWTeamFactionSource Source)
-{
-	UPWTeamAgentComponent* Agent = FindAgent(Actor);
-	if (Agent)
-		Agent->SetFactionSource(Source);
-	return Agent && Agent->GetFactionSource() == Source;
+		Agent->SetFaction(Faction);
+	return Agent && Agent->GetFactionSetting() == Faction;
 }
 
 TArray<AActor*> UPWTeamsSubsystem::GetAgentsOwnedBy(const FPWTeamParticipantHandle Participant) const

@@ -13,6 +13,7 @@
 UPWTeamAgentComponent::UPWTeamAgentComponent()
 {
 	SetIsReplicatedByDefault(true);
+	FactionSetting = PWTeamFactions::InheritFromOwner;
 }
 
 void UPWTeamAgentComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -20,8 +21,7 @@ void UPWTeamAgentComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(UPWTeamAgentComponent, OwnerParticipant);
-	DOREPLIFETIME(UPWTeamAgentComponent, FactionSource);
-	DOREPLIFETIME(UPWTeamAgentComponent, ExplicitFaction);
+	DOREPLIFETIME(UPWTeamAgentComponent, FactionSetting);
 	DOREPLIFETIME(UPWTeamAgentComponent, AgentTags);
 	DOREPLIFETIME(UPWTeamAgentComponent, bPrimary);
 }
@@ -71,19 +71,20 @@ void UPWTeamAgentComponent::OnUnregister()
 	Super::OnUnregister();
 }
 
+EPWTeamFactionSource UPWTeamAgentComponent::GetFactionSource() const
+{
+	if (FactionSetting.IsNone())
+		return EPWTeamFactionSource::None;
+	return FactionSetting == PWTeamFactions::InheritFromOwner ? EPWTeamFactionSource::InheritFromOwner : EPWTeamFactionSource::Explicit;
+}
+
 FName UPWTeamAgentComponent::GetFaction() const
 {
-	switch (FactionSource)
-	{
-	case EPWTeamFactionSource::Explicit:
-		return ExplicitFaction;
-	case EPWTeamFactionSource::InheritFromOwner:
-		if (const UPWTeamsSubsystem* Teams = UPWTeamsSubsystem::Get(this))
-			return Teams->GetParticipantFaction(OwnerParticipant);
-		return NAME_None;
-	default:
-		return NAME_None;
-	}
+	if (FactionSetting != PWTeamFactions::InheritFromOwner)
+		return FactionSetting;
+
+	const UPWTeamsSubsystem* Teams = UPWTeamsSubsystem::Get(this);
+	return Teams ? Teams->GetParticipantFaction(OwnerParticipant) : NAME_None;
 }
 
 void UPWTeamAgentComponent::SetOwnerParticipant(const FPWTeamParticipantHandle NewOwner)
@@ -96,23 +97,18 @@ void UPWTeamAgentComponent::SetOwnerParticipant(const FPWTeamParticipantHandle N
 	OnRep_OwnerParticipant(OldOwner);
 }
 
-void UPWTeamAgentComponent::SetFactionSource(const EPWTeamFactionSource NewSource)
+void UPWTeamAgentComponent::SetFaction(const FName NewFaction)
 {
-	if (!HasAuthority() || FactionSource == NewSource)
+	if (!HasAuthority() || FactionSetting == NewFaction)
 		return;
 
-	FactionSource = NewSource;
+	FactionSetting = NewFaction;
 	RefreshFaction();
 }
 
-void UPWTeamAgentComponent::SetExplicitFaction(const FName Faction)
+void UPWTeamAgentComponent::InheritFactionFromOwner()
 {
-	if (!HasAuthority())
-		return;
-
-	ExplicitFaction = Faction;
-	FactionSource = EPWTeamFactionSource::Explicit;
-	RefreshFaction();
+	SetFaction(PWTeamFactions::InheritFromOwner);
 }
 
 void UPWTeamAgentComponent::RefreshFaction()
@@ -155,9 +151,10 @@ void UPWTeamAgentComponent::SetPrimary(const bool bNewPrimary)
 
 TArray<FName> UPWTeamAgentComponent::GetFactionOptions() const
 {
-	TArray<FName> Options = UPWTeamSetup::GetAllFactionNames();
-	// Keep a name that is not in the setup selectable, so opening the actor never loses it.
-	if (!ExplicitFaction.IsNone())
-		Options.AddUnique(ExplicitFaction);
+	TArray<FName> Options = { NAME_None, PWTeamFactions::InheritFromOwner };
+	for (const FName& Name : UPWTeamSetup::GetAllFactionNames())
+		Options.AddUnique(Name);
+	// Keep a name that is in no setup selectable, so opening the actor never loses it.
+	Options.AddUnique(FactionSetting);
 	return Options;
 }

@@ -114,13 +114,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Teams|Agents")
 	static bool SetAgentOwner(AActor* Actor, FPWTeamParticipantHandle Participant);
 
-	// Server only. Gives the actor a faction of its own, whatever its owner's is.
+	// Server only. The same choices as an agent's Faction dropdown: None, Inherit From Owner, or a faction of its own.
 	UFUNCTION(BlueprintCallable, Category="Teams|Agents")
 	static bool SetAgentFaction(AActor* Actor, FName Faction);
-
-	// Server only.
-	UFUNCTION(BlueprintCallable, Category="Teams|Agents")
-	static bool SetAgentFactionSource(AActor* Actor, EPWTeamFactionSource Source);
 
 	UFUNCTION(BlueprintPure, Category="Teams|Agents")
 	TArray<AActor*> GetAgentsOwnedBy(FPWTeamParticipantHandle Participant) const;
